@@ -1,18 +1,21 @@
-import requests
 import time
 from bs4 import BeautifulSoup
 import os
 from optparse import OptionParser
 import datetime
 import gevent
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey
+monkey.patch_all()
+import requests
+from gevent.pool import Pool
 
 # paramaters to be defined
-website = 'http://konachan.net/post'  # 'http://lolibooru.moe/post'
+website = 'http://konachan.com/post'
 download_path = '/home/chaos/opt/pip'
 tags = ''
 pages = 1
 image_count = 1
+concurrency_limit = 20
 
 
 def dpic(fadr):
@@ -28,17 +31,14 @@ def dpic(fadr):
     print('Finished downloading {}'.format(name))
 
 
-def dpage(page):
+def dpage(page, pool):
     main_page = requests.get(website, params={'tags': tags, 'page': page})
     soup = BeautifulSoup(main_page.text, 'html.parser')
     images = soup.find_all('a', class_='directlink')
-        #soup.find_all('a', {'class': 'directlink smallimg'})
-    jobs = []
+    #soup.find_all('a', {'class': 'directlink smallimg'})
     for img in images:
-        jobs.append(gevent.spawn(dpic,'http:'+img['href']))
+        pool.spawn(dpic, img['href'])
         time.sleep(0.5)
-    gevent.joinall(jobs)
-    print('Finished downloading first page')
 
 
 def arguments():
@@ -64,6 +64,8 @@ if __name__ == '__main__':
     if options.directory:
         download_path = options.directory
 
+    pool = Pool(concurrency_limit)
     # Downloading files
     for i in range(pages):
-        dpage(i + 1)
+        dpage(i + 1, pool)
+    pool.join()
