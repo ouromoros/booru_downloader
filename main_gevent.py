@@ -4,32 +4,28 @@ from bs4 import BeautifulSoup
 import os
 from optparse import OptionParser
 import datetime
-import threading
+import gevent
+from gevent import monkey; monkey.patch_all()
 
 # paramaters to be defined
 website = 'http://konachan.net/post'  # 'http://lolibooru.moe/post'
-download_path = '/home/chaos/pip'
+download_path = '/home/chaos/opt/pip'
 tags = ''
 pages = 1
 image_count = 1
 
 
-class dThread(threading.Thread):
-    def __init__(self, fadr):
-        threading.Thread.__init__(self)
-        self.fadr = fadr
-
-    def run(self):
-        name = requests.utils.unquote(self.fadr[self.fadr.rfind('/') + 1:])
-        self.iname = name
-        if os.path.isfile(download_path + '/' + name):
-            return
-        if not os.path.isdir(download_path):
-            os.mkdir(download_path)
-        print('Downloading ' + name[name.rfind('/') + 1:])
-        content = requests.get(self.fadr)
-        with open(download_path + '/' + name, 'wb') as f:
-            f.write(content.content)
+def dpic(fadr):
+    name = requests.utils.unquote(fadr[fadr.rfind('/') + 1:])
+    if os.path.isfile(download_path + '/' + name):
+        return
+    if not os.path.isdir(download_path):
+        os.makedirs(download_path)
+    print('Downloading ' + name[name.rfind('/') + 1:])
+    content = requests.get(fadr)
+    with open(download_path + '/' + name, 'wb') as f:
+        f.write(content.content)
+    print('Finished downloading {}'.format(name))
 
 
 def dpage(page):
@@ -37,15 +33,12 @@ def dpage(page):
     soup = BeautifulSoup(main_page.text, 'html.parser')
     images = soup.find_all('a', class_='directlink')
         #soup.find_all('a', {'class': 'directlink smallimg'})
-    threads = []
+    jobs = []
     for img in images:
-        t = dThread('http:' + img['href'])
-        t.start()
-        threads.append(t)
+        jobs.append(gevent.spawn(dpic,'http:'+img['href']))
         time.sleep(0.5)
-    for t in threads:
-        t.join()
-        print('Fnished downloading {}'.format(t.iname))
+    gevent.joinall(jobs)
+    print('Finished downloading first page')
 
 
 def arguments():
