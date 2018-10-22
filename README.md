@@ -10,3 +10,5 @@ Options:
                         directory to store downloaded pictures
 ~~~
 The gevent version is suggested.
+
+Needed libraries: `BeautifulSoup`, `requests` and `gevent`(gevent version)
